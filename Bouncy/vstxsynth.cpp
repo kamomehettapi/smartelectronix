@@ -5,20 +5,27 @@
 	#include <string>
 #endif
 
-VstXSynth::VstXSynth (audioMasterCallback audioMaster) : AudioEffectX (audioMaster, 0, kNumParams)
+VstXSynth::VstXSynth (audioMasterCallback audioMaster) : AudioEffectX (audioMaster, kNumPrograms, kNumParams)
 {
 	setNumInputs (2);
 	setNumOutputs (2);
+	programsAreChunks(true);
 	canProcessReplacing();
 	setUniqueID ('BNCY');
 
 	delayL = new Bouncy(getSampleRate());
 	delayR = new Bouncy(getSampleRate());
 
-	save[kMaxDelay] = 0.58f;
-	save[kDelayShape] = 0.42f;
-	save[kAmpShape] = 0.08f;
-	save[kRandAmp] = 0.f;
+	for (int i = 0; i < kNumPrograms; i++)
+	{
+		strcpy(save[i].name, "default");
+		save[i].params[kMaxDelay] = 0.58f;
+		save[i].params[kDelayShape] = 0.42f;
+		save[i].params[kAmpShape] = 0.08f;
+		save[i].params[kRandAmp] = 0.f;
+	}
+
+	curProgram = 0;
 
 #if WIN32
 	pf = 0;
@@ -81,16 +88,16 @@ void VstXSynth::getParameterDisplay (VstInt32 index, char *text)
 {
 	switch(index)
 	{
-		case kMaxDelay : float2string(save[index]*NUM_BEATS,text, 10); break;
-		case kDelayShape : float2string(save[index]*2.f - 1.f,text, 10); break;
-		case kAmpShape : float2string(save[index]*2.f - 1.f,text, 10); break;
+		case kMaxDelay : float2string(save[curProgram].params[index]*NUM_BEATS,text, 10); break;
+		case kDelayShape : float2string(save[curProgram].params[index]*2.f - 1.f,text, 10); break;
+		case kAmpShape : float2string(save[curProgram].params[index]*2.f - 1.f,text, 10); break;
 		case kRenewRand :
-			if(save[kRenewRand] > 0.5f)
+			if(save[curProgram].params[kRenewRand] > 0.5f)
 				strcpy(text,"on");
 			else
 				strcpy(text,"off");
 			break;
-		default : float2string(save[index],text, 10); break;
+		default : float2string(save[curProgram].params[index],text, 10); break;
 	}
 }
 
@@ -110,22 +117,22 @@ void VstXSynth::setParameter (VstInt32 index, float value)
 {
 	if(index < kNumParams)
 	{
-		save[index] = value;
+		save[curProgram].params[index] = value;
 
 		if(index == kMaxDelay)
 		{
-			if ((save[kMaxDelay] * 60.f * NUM_BEATS) / (BPM * 5.f) > 1.f)
-				save[kMaxDelay] = (BPM*5.f)/(60.f*NUM_BEATS);
+			if ((save[curProgram].params[kMaxDelay] * 60.f * NUM_BEATS) / (BPM * 5.f) > 1.f)
+				save[curProgram].params[kMaxDelay] = (BPM*5.f)/(60.f*NUM_BEATS);
 
-			float beatzf = save[kMaxDelay] * NUM_BEATS;
+			float beatzf = save[curProgram].params[kMaxDelay] * NUM_BEATS;
 			long  beatzi = (long)beatzf;
 			float diff = fabsf(beatzf - (float)beatzi);
 
 			if(diff < 0.1f)
-				save[kMaxDelay] = (float) beatzi / (NUM_BEATS);
+				save[curProgram].params[kMaxDelay] = (float) beatzi / (NUM_BEATS);
 		}
 
-		if(index == kRenewRand && save[kRenewRand] > 0.5f)
+		if(index == kRenewRand && save[curProgram].params[kRenewRand] > 0.5f)
 		{
 			delayL->fillRand();
 			delayR->fillRand();
@@ -141,7 +148,7 @@ void VstXSynth::setParameter (VstInt32 index, float value)
 float VstXSynth::getParameter (VstInt32 index)
 {
 	if(index < kNumParams)
-		return save[index];
+		return save[curProgram].params[index];
 	else
 		return 0.f;
 }
@@ -188,15 +195,39 @@ VstInt32 VstXSynth::canDo (char* text)
 
 void VstXSynth::setProgram (VstInt32 program)
 {
+	curProgram = program;
+	setParam();
 }
 
 void VstXSynth::setProgramName (char *name)
 {
+	strcpy(save[curProgram].name, name);
+	setParam();
 }
 
 void VstXSynth::getProgramName (char *name)
 {
-	strcpy (name,"");
+	strcpy (name, save[curProgram].name);
+}
+
+// Override getChunk to save parameters
+VstInt32 VstXSynth::getChunk(void** data, bool isPreset) {
+	*data = malloc(sizeof(BouncyProgram));
+	if (*data) {
+		memcpy(*data, &save[curProgram], sizeof(BouncyProgram));
+		return sizeof(BouncyProgram);
+	}
+	return 0; // Failed to allocate memory
+}
+
+// Override setChunk to load parameters
+VstInt32 VstXSynth::setChunk(void* data, VstInt32 byteSize, bool isPreset) {
+	if (byteSize == sizeof(BouncyProgram)) {
+		memcpy(&save[curProgram], data, byteSize);
+		setParam();
+		return 1; // Success
+	}
+	return 0; // Chunk size mismatch
 }
 
 VstInt32 VstXSynth::processEvents (VstEvents* ev)

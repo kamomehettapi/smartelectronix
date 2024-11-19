@@ -35,14 +35,14 @@ void VstXSynth::process(float **inputs, float **outputs, VstInt32 sampleFrames)
 	else
 		newBPM = 180.f;
 
-	float x = (save[kMaxDelay] * 60.f * NUM_BEATS) / (BPM * MAX_DELAY);
+	float x = (save[curProgram].params[kMaxDelay] * 60.f * NUM_BEATS) / (newBPM * MAX_DELAY);
 
 	if(x > 1.f) x = 1.f;
 
 	if(newBPM != BPM || isDirty)
 	{
-		delayL->setParameters(x,save[kDelayShape],save[kAmpShape],save[kRandAmp]);
-		delayR->setParameters(x,save[kDelayShape],save[kAmpShape],save[kRandAmp]);
+		delayL->setParameters(x, save[curProgram].params[kDelayShape], save[curProgram].params[kAmpShape], save[curProgram].params[kRandAmp]);
+		delayR->setParameters(x, save[curProgram].params[kDelayShape], save[curProgram].params[kAmpShape], save[curProgram].params[kRandAmp]);
 		BPM = newBPM;
 		isDirty = false;
 	}
@@ -66,14 +66,14 @@ void VstXSynth::processReplacing(float **inputs, float **outputs, VstInt32 sampl
 	else
 		newBPM = 60.f;
 
-	float x = (save[kMaxDelay] * 60.f * NUM_BEATS) / (BPM * MAX_DELAY);
+	float x = (save[curProgram].params[kMaxDelay] * 60.f * NUM_BEATS) / (newBPM * MAX_DELAY);
 
 	if(x > 1.f) x = 1.f;
 
 	if(newBPM != BPM || isDirty)
 	{
-		delayL->setParameters(x,save[kDelayShape],save[kAmpShape],save[kRandAmp]);
-		delayR->setParameters(x,save[kDelayShape],save[kAmpShape],save[kRandAmp]);
+		delayL->setParameters(x, save[curProgram].params[kDelayShape], save[curProgram].params[kAmpShape], save[curProgram].params[kRandAmp]);
+		delayR->setParameters(x, save[curProgram].params[kDelayShape], save[curProgram].params[kAmpShape], save[curProgram].params[kRandAmp]);
 		BPM = newBPM;
 		isDirty = false;
 	}

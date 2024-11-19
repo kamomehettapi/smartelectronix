@@ -18,9 +18,14 @@ enum
 	kRandAmp, //slider
 	kRenewRand, //onoff
 	kNumParams,
-	kNumOutputs = 2
+	kNumOutputs = 2,
+	kNumPrograms = 16
 };
 
+struct BouncyProgram {
+	char name[kVstMaxProgNameLen];
+	float params[kNumParams];
+};
 
 class VstXSynth : public AudioEffectX
 {
@@ -44,6 +49,8 @@ public:
 	virtual void setSampleRate(float sampleRate);
 	virtual void resume();
 	virtual VstInt32 processEvents (VstEvents* ev);
+	virtual VstInt32 getChunk(void** data, bool isPreset);
+	virtual VstInt32 setChunk(void* data, VstInt32 byteSize, bool isPreset);
 
 	virtual bool getOutputProperties (VstInt32 index, VstPinProperties* properties);
 	virtual bool getEffectName (char* name);
@@ -64,7 +71,8 @@ private:
 
 	bool isDirty;
 
-	float save[kNumParams];
+	BouncyProgram save[kNumPrograms];
+	VstInt32 curProgram = 0;
 
 	float BPM;
 
